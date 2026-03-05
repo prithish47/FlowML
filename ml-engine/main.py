@@ -7,6 +7,7 @@ Receives pipeline definitions, executes them, and returns results.
 import os
 import json
 import shutil
+import asyncio
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -113,7 +114,8 @@ async def execute_pipeline(request: PipelineRequest):
         )
 
     # Run pipeline
-    result = run_pipeline(
+    result = await asyncio.to_thread(
+        run_pipeline,
         nodes=nodes,
         edges=edges,
         executors=EXECUTORS,

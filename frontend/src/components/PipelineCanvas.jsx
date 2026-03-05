@@ -97,10 +97,15 @@ export default function PipelineCanvas() {
             const sourceDef = NODE_TYPES[sourceNode.data.nodeType];
             const targetDef = NODE_TYPES[targetNode.data.nodeType];
 
-            if (sourceDef.outputs.length === 0 || targetDef.inputs.length === 0) return false;
+            if (!sourceDef || !targetDef) return false;
 
-            // Advanced validation
-            if (sourceDef.category === 'input' && targetDef.category === 'model') {
+            // Validate based on common keys in inputs/outputs
+            const hasCommonKey = sourceDef.outputs.some(outputKey => 
+                targetDef.inputs.includes(outputKey)
+            );
+
+            if (!hasCommonKey) {
+                console.warn(`[Pipeline] Invalid connection: ${sourceDef.label} outputs [${sourceDef.outputs}] do not match ${targetDef.label} inputs [${targetDef.inputs}]`);
                 return false;
             }
 

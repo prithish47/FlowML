@@ -169,6 +169,6 @@ export const PRO_FEATURES = [
 export const FREE_TIER_LIMITS = {
     maxDatasetSizeMB: 10,
     maxRows: 50000,
-    maxNodesPerWorkflow: 15,
+    maxNodesPerWorkflow: 10,
     executionTimeoutSeconds: 60
 };

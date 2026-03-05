@@ -1,6 +1,7 @@
 const express = require('express');
 const axios = require('axios');
 const auth = require('../middleware/auth');
+const UsageLog = require('../models/UsageLog');
 
 const router = express.Router();
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
@@ -48,22 +49,28 @@ function summarizeGraph(nodes, edges) {
     return edges.map(e => `${nameMap[e.source]} \u2192 ${nameMap[e.target]}`).join(' | ');
 }
 
-// In-memory rate limiting / quota mock for free tier (as requested)
-// In a real DB this would be stored alongside user profile
-const usageCounts = {};
-
-function checkDailyQuota(userId, endpoint) {
+// MongoDB-backed rate limiting / quota for free tier
+async function checkDailyQuota(userId, endpoint) {
     const today = new Date().toISOString().split('T')[0];
-    const key = `${userId}_${today}_${endpoint}`;
-    if (!usageCounts[key]) usageCounts[key] = 0;
-
+    
     // Limits: 20 explains per day, 50 QA calls per day
     const limit = endpoint === 'explain' ? 20 : 50;
 
-    if (usageCounts[key] >= limit) {
+    const log = await UsageLog.findOneAndUpdate(
+        { userId, date: today, endpoint },
+        { $setOnInsert: { userId, date: today, endpoint }, $inc: { count: 0 } },
+        { upsert: true, new: true }
+    );
+
+    if (log.count >= limit) {
         return false;
     }
-    usageCounts[key]++;
+
+    await UsageLog.updateOne(
+        { userId, date: today, endpoint },
+        { $inc: { count: 1 } }
+    );
+    
     return true;
 }
 
@@ -81,7 +88,8 @@ router.post('/explain-pipeline', auth, async (req, res) => {
         }
 
         // Daily limit check
-        if (!checkDailyQuota(req.user.userId, 'explain')) {
+        const hasQuota = await checkDailyQuota(req.user.userId, 'explain');
+        if (!hasQuota) {
             return res.status(429).json({ error: 'Daily explanation quota exceeded.' });
         }
 
@@ -157,7 +165,8 @@ router.post('/pipeline-question', auth, async (req, res) => {
         }
 
         // Daily limit check
-        if (!checkDailyQuota(req.user.userId, 'qa')) {
+        const hasQuota = await checkDailyQuota(req.user.userId, 'qa');
+        if (!hasQuota) {
             return res.status(429).json({ error: 'Daily Q&A quota exceeded.' });
         }
 

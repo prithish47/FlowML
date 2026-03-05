@@ -35,6 +35,11 @@ export default function ConfigPanel() {
         ));
     };
 
+    const handleNumberChange = (key, value) => {
+        const parsed = value === '' ? null : parseFloat(value);
+        updateConfig(key, parsed);
+    };
+
     const handleFileUpload = async (e) => {
         const file = e.target.files[0];
         if (file) {
@@ -128,8 +133,11 @@ export default function ConfigPanel() {
                                 ) : (
                                     <input
                                         type={field.type === 'number' ? 'number' : 'text'}
-                                        value={selectedNode.data.config[key] || ''}
-                                        onChange={(e) => updateConfig(key, field.type === 'number' ? parseFloat(e.target.value) : e.target.value)}
+                                        value={selectedNode.data.config[key] ?? ''}
+                                        onChange={(e) => field.type === 'number' 
+                                            ? handleNumberChange(key, e.target.value) 
+                                            : updateConfig(key, e.target.value)
+                                        }
                                         className="w-full h-10 rounded-lg bg-[#f1f5f9] border border-black/5 focus:ring-1 focus:ring-[#2563eb]/30 focus:outline-none px-4 text-[13px] text-[#0f172a] placeholder-[#94a3b8] transition-all font-medium"
                                         placeholder="Enter value..."
                                     />

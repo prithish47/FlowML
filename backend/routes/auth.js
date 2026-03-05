@@ -3,7 +3,8 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'flowml_default_secret';
+const JWT_SECRET = process.env.JWT_SECRET;
+const TOKEN_EXPIRY = '7d';
 
 // POST /api/auth/signup
 router.post('/signup', async (req, res) => {
@@ -30,7 +31,7 @@ router.post('/signup', async (req, res) => {
         const token = jwt.sign(
             { userId: user._id, email: user.email, name: user.name },
             JWT_SECRET,
-            { expiresIn: '14d' }
+            { expiresIn: TOKEN_EXPIRY }
         );
 
         res.status(201).json({
@@ -65,7 +66,7 @@ router.post('/login', async (req, res) => {
         const token = jwt.sign(
             { userId: user._id, email: user.email, name: user.name },
             JWT_SECRET,
-            { expiresIn: '7d' }
+            { expiresIn: TOKEN_EXPIRY }
         );
 
         res.json({
