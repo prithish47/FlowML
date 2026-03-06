@@ -217,7 +217,7 @@ export default function MetricsDashboard({ results }) {
             )}
 
             {/* Standard Charts (for single model or also shown in comparison) */}
-            <div className="grid grid-cols-2 gap-8 h-72">
+            <div className="grid grid-cols-2 gap-8 min-h-[450px]">
                 {/* Prediction Chart */}
                 {chartData.predictions && chartData.predictions.length > 0 && (
                     <div className="bg-[#ffffff] rounded-2xl border border-black/5 p-6 shadow-xl flex flex-col">
@@ -235,7 +235,7 @@ export default function MetricsDashboard({ results }) {
                                 </span>
                             </div>
                         </div>
-                        <div className="flex-1">
+                        <div className="flex-1 min-h-[300px]">
                             <ResponsiveContainer width="100%" height="100%">
                                 <AreaChart data={chartData.predictions.slice(0, 30)}>
                                     <defs>
@@ -266,19 +266,30 @@ export default function MetricsDashboard({ results }) {
                             <div className="w-1.5 h-1.5 rounded-full bg-[#0891b2]" />
                             Feature Influence Weights
                         </h4>
-                        <div className="flex-1">
+                        <div className="flex-1 min-h-[300px]">
                             <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={chartData.feature_importance.slice(0, 5)} layout="vertical" margin={{ left: -20, right: 20 }}>
+                                <BarChart 
+                                    data={chartData.feature_importance.slice(0, 8)} 
+                                    layout="vertical" 
+                                    margin={{ left: 40, right: 20, top: 0, bottom: 0 }}
+                                >
                                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.02)" horizontal={false} />
                                     <XAxis type="number" hide />
-                                    <YAxis type="category" dataKey="feature" tick={{ fontSize: 10, fill: '#64748b', fontWeight: 700, width: 90 }} axisLine={false} tickLine={false} />
+                                    <YAxis 
+                                        type="category" 
+                                        dataKey="feature" 
+                                        tick={{ fontSize: 10, fill: '#64748b', fontWeight: 700 }} 
+                                        width={120}
+                                        axisLine={false} 
+                                        tickLine={false} 
+                                    />
                                     <Tooltip
                                         cursor={{ fill: 'rgba(0,0,0,0.02)' }}
                                         contentStyle={{ background: '#ffffff', border: '1px solid rgba(0,0,0,0.05)', borderRadius: '12px', fontSize: '11px' }}
                                     />
                                     <Bar dataKey="importance" fill="#0891b2" radius={[0, 4, 4, 0]} barSize={12}>
                                         {chartData.feature_importance.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={index === 0 ? '#2563eb' : '#0891b2'} opacity={1 - (index * 0.15)} />
+                                            <Cell key={`cell-${index}`} fill={index === 0 ? '#2563eb' : '#0891b2'} opacity={1 - (index * 0.1)} />
                                         ))}
                                     </Bar>
                                 </BarChart>

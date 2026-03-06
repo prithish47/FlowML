@@ -8,7 +8,7 @@ export default function ExecutionPanel() {
     const { logs, results, executionState, downloadModel, modelDownloadAvailable } = usePipeline();
     const [activeTab, setActiveTab] = useState('logs');
     const [isMinimized, setIsMinimized] = useState(false);
-    const [panelHeight, setPanelHeight] = useState(300);
+    const [panelHeight, setPanelHeight] = useState(450);
     const [isResizing, setIsResizing] = useState(false);
 
     const startResizing = useCallback((e) => {

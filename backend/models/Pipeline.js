@@ -24,10 +24,19 @@ const pipelineSchema = new mongoose.Schema({
         type: Array,
         default: []
     },
-    lastResults: {
-        type: Object,
-        default: null
-    },
+    runs: [{
+        runId: String,
+        executedAt: { type: Date, default: Date.now },
+        metrics: { type: Object, default: {} },
+        logs: { type: Array, default: [] },
+        nodeStates: { type: Array, default: [] }, // snapshot of nodes at run time
+        executionTime: Number, // in ms
+        status: {
+            type: String,
+            enum: ['completed', 'failed'],
+            default: 'completed'
+        }
+    }],
     status: {
         type: String,
         enum: ['draft', 'running', 'completed', 'failed'],

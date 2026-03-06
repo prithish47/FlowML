@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { applyNodeChanges, applyEdgeChanges } from '@xyflow/react';
 import { executeAPI, pipelineAPI, uploadAPI } from '../utils/api';
 
@@ -19,6 +19,56 @@ export function PipelineProvider({ children }) {
     const [modelDownloadAvailable, setModelDownloadAvailable] = useState(false);
     const [modelFileId, setModelFileId] = useState(null);
     const [hasDismissedOnboarding, setHasDismissedOnboarding] = useState(false);
+    
+    // Auto-save state
+    const [saveStatus, setSaveStatus] = useState('saved'); // saved | unsaved | saving
+    const autoSaveTimerRef = useRef(null);
+    const isInitialLoad = useRef(true);
+
+    const savePipeline = useCallback(async (currentData = null) => {
+        setSaveStatus('saving');
+        try {
+            const data = currentData || { name: pipelineName, nodes, edges };
+            if (pipelineId) {
+                const res = await pipelineAPI.update(pipelineId, data);
+                setSaveStatus('saved');
+                return res.data.pipeline;
+            } else {
+                const res = await pipelineAPI.create(data);
+                setPipelineId(res.data.pipeline._id);
+                setSaveStatus('saved');
+                return res.data.pipeline;
+            }
+        } catch (err) {
+            console.error('Save failed:', err);
+            setSaveStatus('unsaved');
+            throw err;
+        }
+    }, [pipelineName, nodes, edges, pipelineId]);
+
+    // Trigger auto-save when nodes, edges, or name changes
+    useEffect(() => {
+        if (isInitialLoad.current) {
+            isInitialLoad.current = false;
+            return;
+        }
+
+        setSaveStatus('unsaved');
+
+        if (autoSaveTimerRef.current) {
+            clearTimeout(autoSaveTimerRef.current);
+        }
+
+        autoSaveTimerRef.current = setTimeout(() => {
+            savePipeline();
+        }, 2000);
+
+        return () => {
+            if (autoSaveTimerRef.current) {
+                clearTimeout(autoSaveTimerRef.current);
+            }
+        };
+    }, [nodes, edges, pipelineName, savePipeline]);
 
     // Cascade edge cleanup when nodes are removed - prevents orphan edges
     const onNodesChange = useCallback(
@@ -100,6 +150,14 @@ export function PipelineProvider({ children }) {
     const runPipeline = useCallback(async () => {
         if (nodes.length === 0) return;
 
+        let currentPipelineId = pipelineId;
+        
+        // If no ID, save first to get one (edge case handling)
+        if (!currentPipelineId) {
+            const saved = await savePipeline();
+            currentPipelineId = saved._id;
+        }
+
         setExecutionState('running');
         setLogs([{ time: new Date().toLocaleTimeString(), type: 'info', message: 'Initializing enterprise execution engine...' }]);
         setResults(null);
@@ -108,7 +166,7 @@ export function PipelineProvider({ children }) {
         setNodes(nds => nds.map(n => ({ ...n, data: { ...n.data, status: 'running', error: null } })));
 
         try {
-            const res = await executeAPI.run(nodes, edges, uploadedFiles);
+            const res = await executeAPI.run(nodes, edges, uploadedFiles, currentPipelineId);
             const data = res.data;
 
             // Update individual node statuses based on results
@@ -151,33 +209,41 @@ export function PipelineProvider({ children }) {
             setNodes(nds => nds.map(n => ({ ...n, data: { ...n.data, status: 'failed', error: 'Pipeline interrupted' } })));
             throw err;
         }
-    }, [nodes, edges, uploadedFiles]);
-
-    const savePipeline = useCallback(async () => {
-        const data = { name: pipelineName, nodes, edges };
-        if (pipelineId) {
-            const res = await pipelineAPI.update(pipelineId, data);
-            return res.data.pipeline;
-        } else {
-            const res = await pipelineAPI.create(data);
-            setPipelineId(res.data.pipeline._id);
-            return res.data.pipeline;
-        }
-    }, [pipelineName, nodes, edges, pipelineId]);
+    }, [nodes, edges, uploadedFiles, pipelineId, savePipeline]);
 
     const loadPipeline = useCallback(async (id) => {
+        isInitialLoad.current = true; // Prevent auto-save from firing during load
         const res = await pipelineAPI.get(id);
         const p = res.data.pipeline;
+        
         setPipelineId(p._id);
         setPipelineName(p.name);
         setNodes(p.nodes || []);
         setEdges(p.edges || []);
-        setResults(p.lastResults || null);
-        setExecutionState('idle');
-        setLogs([]);
+        
+        // Restore last run results if available
+        if (p.runs && p.runs.length > 0) {
+            const lastRun = p.runs[0]; // Latest run
+            setResults(lastRun.metrics || null);
+            setLogs(lastRun.logs || []);
+            setExecutionState(lastRun.status || 'idle');
+            
+            // If model was generated, mark it available (simplified check)
+            if (lastRun.metrics && Object.keys(lastRun.metrics).length > 0) {
+                setModelDownloadAvailable(true);
+                setModelFileId(lastRun.runId);
+            }
+        } else {
+            setResults(null);
+            setLogs([]);
+            setExecutionState('idle');
+        }
+        
+        setSaveStatus('saved');
     }, []);
 
     const clearPipeline = useCallback(() => {
+        isInitialLoad.current = true;
         setNodes([]);
         setEdges([]);
         setSelectedNodeId(null);
@@ -190,6 +256,7 @@ export function PipelineProvider({ children }) {
         setModelDownloadAvailable(false);
         setModelFileId(null);
         setHasDismissedOnboarding(false);
+        setSaveStatus('saved');
     }, []);
 
     const downloadModel = useCallback(() => {
@@ -227,7 +294,8 @@ export function PipelineProvider({ children }) {
             clearPipeline,
             downloadModel,
             modelDownloadAvailable,
-            hasDismissedOnboarding, setHasDismissedOnboarding
+            hasDismissedOnboarding, setHasDismissedOnboarding,
+            saveStatus
         }}>
             {children}
         </PipelineContext.Provider>

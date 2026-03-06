@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Play, Save, FolderOpen, Plus, User, LogOut, Zap, Download, Info } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Play, Save, FolderOpen, Plus, User, LogOut, Zap, Download, Info, CheckCircle2, CloudFog, CloudOff, Loader2 } from 'lucide-react';
 import { usePipeline } from '../context/PipelineContext';
 import { useAuth } from '../context/AuthContext';
 import PipelineManager from './PipelineManager';
@@ -10,11 +10,11 @@ import { Wand2 } from 'lucide-react';
 export default function TopBar() {
     const {
         pipelineName, setPipelineName, runPipeline, savePipeline,
-        executionState, clearPipeline, downloadModel, modelDownloadAvailable
+        executionState, clearPipeline, downloadModel, modelDownloadAvailable,
+        saveStatus
     } = usePipeline();
 
     const { user, logout } = useAuth();
-    const [saving, setSaving] = useState(false);
     const [showPipelineManager, setShowPipelineManager] = useState(false);
     const [showUserMenu, setShowUserMenu] = useState(false);
     const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
@@ -30,20 +30,45 @@ export default function TopBar() {
     };
 
     const handleSave = async () => {
-        setSaving(true);
         try {
             await savePipeline();
         } catch (err) {
             console.error('Save failed:', err);
         }
-        setSaving(false);
     };
+
+    const statusIndicator = useMemo(() => {
+        switch (saveStatus) {
+            case 'saving':
+                return (
+                    <div className="flex items-center gap-1.5 text-amber-500 font-bold uppercase tracking-widest text-[9px] animate-pulse">
+                        <Loader2 size={10} className="animate-spin" />
+                        <span>Saving...</span>
+                    </div>
+                );
+            case 'unsaved':
+                return (
+                    <div className="flex items-center gap-1.5 text-rose-500 font-bold uppercase tracking-widest text-[9px]">
+                        <div className="w-1.5 h-1.5 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.4)]" />
+                        <span>Unsaved Changes</span>
+                    </div>
+                );
+            case 'saved':
+            default:
+                return (
+                    <div className="flex items-center gap-1.5 text-emerald-500 font-bold uppercase tracking-widest text-[9px]">
+                        <CheckCircle2 size={10} />
+                        <span>Saved</span>
+                    </div>
+                );
+        }
+    }, [saveStatus]);
 
     return (
         <header className="h-16 bg-[#ffffff] border-b border-black/5 flex items-center justify-between px-6 z-50">
             {/* Left Section: Logo & Pipeline Name */}
             <div className="flex items-center gap-8">
-                <div className="flex items-center gap-3 group cursor-pointer">
+                <div className="flex items-center gap-3 group cursor-pointer" onClick={clearPipeline}>
                     <div className="w-10 h-10 bg-[#2563eb] rounded-lg flex items-center justify-center shadow-[0_4px_12px_rgba(37,99,235,0.2)]">
                         <Zap className="text-white fill-current" size={22} />
                     </div>
@@ -55,25 +80,30 @@ export default function TopBar() {
 
                 <div className="h-6 w-[1px] bg-black/5 mx-2" />
 
-                <div className="flex items-center">
-                    {isEditing ? (
-                        <input
-                            autoFocus
-                            className="bg-[#f8fafc] border border-[#2563eb]/30 rounded px-3 py-1.5 text-[14px] font-medium text-[#0f172a] focus:outline-none w-[240px]"
-                            value={pipelineName}
-                            onChange={(e) => setPipelineName(e.target.value)}
-                            onBlur={() => setIsEditing(false)}
-                            onKeyDown={(e) => e.key === 'Enter' && setIsEditing(false)}
-                        />
-                    ) : (
-                        <div
-                            onClick={() => setIsEditing(true)}
-                            className="group flex items-center gap-3 cursor-pointer px-3 py-1.5 rounded hover:bg-black/5 transition-all"
-                        >
-                            <span className="text-[14px] font-medium text-[#0f172a]">{pipelineName}</span>
-                            <span className="px-1.5 py-0.5 rounded bg-black/5 text-[9px] font-bold text-[#94a3b8] uppercase tracking-wider">v1.0</span>
-                        </div>
-                    )}
+                <div className="flex flex-col gap-1">
+                    <div className="flex items-center">
+                        {isEditing ? (
+                            <input
+                                autoFocus
+                                className="bg-[#f8fafc] border border-[#2563eb]/30 rounded px-3 py-1.5 text-[14px] font-medium text-[#0f172a] focus:outline-none w-[240px]"
+                                value={pipelineName}
+                                onChange={(e) => setPipelineName(e.target.value)}
+                                onBlur={() => setIsEditing(false)}
+                                onKeyDown={(e) => e.key === 'Enter' && setIsEditing(false)}
+                            />
+                        ) : (
+                            <div
+                                onClick={() => setIsEditing(true)}
+                                className="group flex items-center gap-3 cursor-pointer px-3 py-1.5 rounded hover:bg-black/5 transition-all"
+                            >
+                                <span className="text-[14px] font-medium text-[#0f172a]">{pipelineName}</span>
+                                <span className="px-1.5 py-0.5 rounded bg-black/5 text-[9px] font-bold text-[#94a3b8] uppercase tracking-wider">v1.0</span>
+                            </div>
+                        )}
+                    </div>
+                    <div className="px-3">
+                        {statusIndicator}
+                    </div>
                 </div>
             </div>
 
@@ -82,7 +112,7 @@ export default function TopBar() {
                 {[
                     { label: 'New', icon: Plus, action: clearPipeline },
                     { label: 'Open', icon: FolderOpen, action: () => setShowPipelineManager(true) },
-                    { label: saving ? 'Saving...' : 'Save', icon: Save, action: handleSave, disabled: saving }
+                    { label: saveStatus === 'saving' ? 'Saving...' : 'Save', icon: Save, action: handleSave, disabled: saveStatus === 'saving' }
                 ].map((btn, i) => (
                     <button
                         key={i}

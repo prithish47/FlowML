@@ -35,8 +35,8 @@ export const pipelineAPI = {
 // Execute API
 export const executeAPI = {
     baseURL: API_BASE,
-    run: (nodes, edges, uploaded_files) =>
-        api.post('/execute', { nodes, edges, uploaded_files })
+    run: (nodes, edges, uploaded_files, pipelineId = null) =>
+        api.post('/execute', { nodes, edges, uploaded_files, pipelineId })
 };
 
 // Upload API
